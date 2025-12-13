@@ -89,7 +89,7 @@ def detect_regions(image_cv, param1=50, param2=30, min_radius=10, max_radius=100
             
     return candidates, debug_image
 
-def extract_coin_image(image_cv, center_x, center_y, radius, target_size=(64, 64)):
+def extract_coin_image(image_cv, center_x, center_y, radius, target_size=(128, 128)):
     """
     Extracts a square crop around the coin and resizes it for the CNN.
     """

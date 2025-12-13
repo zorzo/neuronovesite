@@ -8,11 +8,11 @@ import model
 
 # Configuration
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'czech-coins')
-MODEL_SAVE_PATH = 'coin_model.pth'
+MODEL_SAVE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'coin_model.pth')
 BATCH_SIZE = 32
-EPOCHS = 40
+EPOCHS = 60
 LEARNING_RATE = 0.001
-IMG_SIZE = (64, 64)
+IMG_SIZE = (128, 128)
 
 def train():
     # 1. Check if data exists
@@ -26,11 +26,11 @@ def train():
     transform = transforms.Compose([
         transforms.Resize(IMG_SIZE),
         transforms.ToTensor(),
-        # Normalize? Using standard ImageNet means or just 0-1 (ToTensor does 0-1)
-        # For simplicity, keeping it 0-1 for now or we can compute mean/std.
-        # Let's add simple augmentation for robustness
+        # Augmentation for robustness
         transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(10),
+        transforms.RandomRotation(180), # Coins are rotation invariant
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.8, 1.2)),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
     ])
 
     # 3. Load Dataset

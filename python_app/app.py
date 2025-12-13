@@ -10,6 +10,7 @@ import model
 
 # Coin classes (CZK)
 COIN_CLASSES = [1, 2, 5, 10, 20, 50]
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "coin_model.pth")
 
 st.set_page_config(page_title="Detektor Mincí (Neural Network)", page_icon="🪙")
 
@@ -19,9 +20,9 @@ def load_nn_model():
     Loads the PyTorch model.
     """
     # Try to load trained weights
-    model_path = "coin_model.pth"
-    if os.path.exists(model_path):
-        net = model.load_model(model_path, num_classes=len(COIN_CLASSES))
+    # Try to load trained weights
+    if os.path.exists(MODEL_PATH):
+        net = model.load_model(MODEL_PATH, num_classes=len(COIN_CLASSES))
     else:
         st.warning("Model 'coin_model.pth' nenalezen. Používám náhodné váhy.")
         net = model.load_model(num_classes=len(COIN_CLASSES))
@@ -35,16 +36,16 @@ def main():
     st.sidebar.header("Nastavení Detekce (Hough)")
     st.sidebar.info("Hough Transform je robustnější pro kruhové objekty.")
     
-    param1 = st.sidebar.slider("Canny Threshold (Hrany)", 10, 200, 50, help="Vyšší hodnota = méně hran. Snižte, pokud se mince nenajdou.")
-    param2 = st.sidebar.slider("Accumulator Threshold (Senzitivita)", 10, 100, 45, help="Nižší hodnota = více kruhů (i falešných). Vyšší = přísnější detekce.")
-    min_radius = st.sidebar.slider("Min Poloměr (px)", 5, 50, 20)
-    max_radius = st.sidebar.slider("Max Poloměr (px)", 50, 200, 100)
+    param1 = st.sidebar.slider("Canny Threshold (Hrany)", 10, 200, 100, help="Vyšší hodnota = méně hran. Snižte, pokud se mince nenajdou.")
+    param2 = st.sidebar.slider("Accumulator Threshold (Senzitivita)", 10, 100, 70, help="Nižší hodnota = více kruhů (i falešných). Vyšší = přísnější detekce.")
+    min_radius = st.sidebar.slider("Min Poloměr (px)", 10, 100, 30)
+    max_radius = st.sidebar.slider("Max Poloměr (px)", 50, 300, 150)
     
     st.sidebar.header("Filtrace Výsledků")
-    conf_threshold = st.sidebar.slider("Minimální Jistota Modelu", 0.0, 1.0, 0.60, help="Zahoď detekce, kde si model není jistý (méně než X %). Pomáhá odstranit falešné detekce na pozadí.")
+    conf_threshold = st.sidebar.slider("Minimální Jistota Modelu", 0.0, 1.0, 0.30, help="Zahoď detekce, kde si model není jistý (méně než X %). Pomáhá odstranit falešné detekce na pozadí.")
 
     st.sidebar.header("Model")
-    if os.path.exists("coin_model.pth"):
+    if os.path.exists(MODEL_PATH):
          st.sidebar.success("Model načten!")
     else:
          st.sidebar.warning("Model nenalezen (používám náhodné váhy).")
