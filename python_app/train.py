@@ -10,7 +10,7 @@ import model
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'czech-coins')
 MODEL_SAVE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'coin_model.pth')
 BATCH_SIZE = 32
-EPOCHS = 30
+EPOCHS = 40  # Více epoch pro lepší konvergenci
 LEARNING_RATE = 0.0001
 IMG_SIZE = (128, 128)
 
@@ -32,8 +32,10 @@ def train():
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(180), # Mince jsou invariantní vůči rotaci
         transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
-        # Přesný ColorJitter: Zvládá jas/kontrast, ale odstín/sytost drží zkrátka
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.02),
+        # Agresivní změna jasu/kontrastu pro simulaci špatného osvětlení
+        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2, hue=0.05),
+        # KLÍČOVÉ: Vysoká pravděpodobnost grayscale nutí model učit se tvar (ražbu), ne barvu
+        transforms.RandomGrayscale(p=0.3),
     ])
 
     # 3. Načtení datasetu
