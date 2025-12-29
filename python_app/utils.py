@@ -3,50 +3,56 @@ import numpy as np
 from PIL import Image
 
 STANDARD_SIZE = (512, 512)
-BLUR_KERNEL = (5, 5)  # Slightly larger kernel for better noise reduction
+BLUR_KERNEL = (5, 5)  # Mírně větší jádro pro lepší redukci šumu
 CANNY_THRESHOLDS = (30, 150)
 DILATE_ITER = 2
 
 def preprocess_image(image_pil):
     """
-    Converts PIL image to OpenCV format and resizes it.
+    Převede PIL obrázek do formátu OpenCV a změní velikost.
     """
-    # Convert PIL Image to numpy array (OpenCV format)
+    # Převod PIL obrázku na numpy pole (formát OpenCV)
     image_np = np.array(image_pil)
     
-    # Convert RGB to BGR (OpenCV uses BGR)
+    # Převod RGB na BGR (OpenCV používá BGR)
     if len(image_np.shape) == 3 and image_np.shape[2] == 3:
         image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
     elif len(image_np.shape) == 3 and image_np.shape[2] == 4:
          image_np = cv2.cvtColor(image_np, cv2.COLOR_RGBA2BGR)
 
-    # Resize for consistent processing
+    # Změna velikosti pro konzistentní zpracování (Zachování poměru stran)
     orig_h, orig_w = image_np.shape[:2]
-    resized = cv2.resize(image_np, STANDARD_SIZE)
+    
+    # Výpočet měřítka tak, aby se vešlo do STANDARD_SIZE[0] (např. 512) na nejdelší straně
+    scale = STANDARD_SIZE[0] / max(orig_h, orig_w)
+    new_w = int(orig_w * scale)
+    new_h = int(orig_h * scale)
+    
+    resized = cv2.resize(image_np, (new_w, new_h))
     
     return resized, (orig_w, orig_h)
 
 def detect_regions(image_cv, param1=50, param2=30, min_radius=10, max_radius=100):
     """
-    Detects coin-like regions using Hough Circle Transform.
-    Returns: list of (x, y, r) tuples and the debug image.
+    Detekuje oblasti podobné mincím pomocí Houghovy transformace kružnic.
+    Vrací: seznam n-tic (x, y, r) a debug obrázek.
     """
-    # Preprocessing
+    # Předzpracování
     gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
-    # Apply slightly stronger blur to reduce noise from texture
-    blurred = cv2.GaussianBlur(gray, (9, 9), 2)
+    # Snížené rozmazání pro lepší zachování hran (bylo 9,9, 2)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 1.5)
     
-    # Hough Circle Transform
+    # Houghova transformace kružnic
     # method=cv2.HOUGH_GRADIENT
-    # dp=1: Inverse ratio of the accumulator resolution to the image resolution.
-    # minDist=param: Minimum distance between the centers of the detected circles.
+    # dp=1: Inverzní poměr rozlišení akumulátoru k rozlišení obrázku.
+    # minDist=param: Minimální vzdálenost mezi středy detekovaných kružnic.
     circles = cv2.HoughCircles(
         blurred, 
         cv2.HOUGH_GRADIENT, 
         dp=1, 
-        minDist=min_radius * 2,  # Assume coins don't overlap more than this
-        param1=param1, # Higher threshold for Canny edge detector
-        param2=param2, # Accumulator threshold (lower = more circles, higher = fewer/better)
+        minDist=min_radius * 2,  # Předpoklad, že se mince nepřekrývají více než o tuto hodnotu
+        param1=param1, # Vyšší práh pro Canny detektor hran
+        param2=param2, # Práh akumulátoru (nižší = více kružnic, vyšší = méně/lepší)
         minRadius=min_radius,
         maxRadius=max_radius
     )
@@ -57,9 +63,10 @@ def detect_regions(image_cv, param1=50, param2=30, min_radius=10, max_radius=100
     if circles is not None:
         circles = np.uint16(np.around(circles))
         
-        # Sort circles by radius (ascending) to prefer smaller, tighter circles
-        # This helps avoiding selecting large "background" circles first
-        sorted_indices = np.argsort(circles[0, :, 2])
+        # Seřazení kružnic podle poloměru (SESTUPNĚ) pro preferenci větších vnějších kružnic.
+        # Toto je KRITICKÉ pro bimetalické mince (50 Kč), kde chceme celou minci,
+        # ne jen vnitřní prstenec.
+        sorted_indices = np.argsort(circles[0, :, 2])[::-1]
         sorted_circles = circles[0, sorted_indices, :]
 
         selected_circles = []
@@ -68,12 +75,12 @@ def detect_regions(image_cv, param1=50, param2=30, min_radius=10, max_radius=100
             
             is_duplicate = False
             for (sx, sy, sr) in selected_circles:
-                # Calculate distance between centers
+                # Výpočet vzdálenosti mezi středy
                 dist = np.sqrt((x - sx)**2 + (y - sy)**2)
                 
-                # Check for significant overlap
-                # If centers are closer than the larger radius, one is likely inside the other
-                # Use a factor (e.g., 0.85) to allow slight overlap but reject concentric
+                # Kontrola významného překryvu
+                # Pokud jsou středy blíže než větší poloměr, jedna je pravděpodobně uvnitř druhé
+                # Použití faktoru (např. 0.85) pro povolení mírného překryvu, ale zamítnutí soustředných
                 max_r = max(r, sr)
                 if dist < max_r * 0.85: 
                      is_duplicate = True
@@ -82,21 +89,21 @@ def detect_regions(image_cv, param1=50, param2=30, min_radius=10, max_radius=100
             if not is_duplicate:
                 selected_circles.append((x, y, r))
                 candidates.append((x, y, r))
-                # Draw outer circle
+                # Vykreslení vnější kružnice
                 cv2.circle(debug_image, (x, y), r, (0, 255, 0), 2)
-                # Draw center
+                # Vykreslení středu
                 cv2.circle(debug_image, (x, y), 2, (0, 0, 255), 3)
             
     return candidates, debug_image
 
 def extract_coin_image(image_cv, center_x, center_y, radius, target_size=(128, 128)):
     """
-    Extracts a square crop around the coin and resizes it for the CNN.
+    Extrahuje čtvercový výřez kolem mince a změní velikost pro CNN.
     """
     h, w = image_cv.shape[:2]
     
-    # Add some padding to capture the edge
-    padding = int(radius * 0.2)
+    # Přidání odsazení pro zachycení hrany
+    padding = int(radius * 0.3)
     x1 = max(0, center_x - radius - padding)
     y1 = max(0, center_y - radius - padding)
     x2 = min(w, center_x + radius + padding)
@@ -109,7 +116,7 @@ def extract_coin_image(image_cv, center_x, center_y, radius, target_size=(128, 1
         
     crop_resized = cv2.resize(crop, target_size)
     
-    # Convert back to RGB for the model (assuming model trained on RGB)
+    # Převod zpět na RGB pro model (předpoklad modelu trénovaného na RGB)
     crop_rgb = cv2.cvtColor(crop_resized, cv2.COLOR_BGR2RGB)
     
     return crop_rgb

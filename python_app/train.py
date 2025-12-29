@@ -6,38 +6,41 @@ from torch.utils.data import DataLoader, random_split
 import os
 import model
 
-# Configuration
+# Konfigurace
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'czech-coins')
 MODEL_SAVE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'coin_model.pth')
 BATCH_SIZE = 32
-EPOCHS = 60
-LEARNING_RATE = 0.001
+EPOCHS = 30
+LEARNING_RATE = 0.0001
 IMG_SIZE = (128, 128)
 
 def train():
-    # 1. Check if data exists
+    # 1. Kontrola existence dat
     if not os.path.exists(DATA_DIR):
         print(f"Error: Data directory '{DATA_DIR}' not found.")
         return
 
     print(f"Loading data from {DATA_DIR}...")
 
-    # 2. Data Transforms
+    # 2. Transformace dat
+    # ResNet vyžaduje normalizaci se statistikami ImageNet
     transform = transforms.Compose([
-        transforms.Resize(IMG_SIZE),
+        transforms.Resize((128, 128)), # ResNet zvládne větší, ale 128 je pro mince dostačující
         transforms.ToTensor(),
-        # Augmentation for robustness
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        # Augmentace pro robustnost
         transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(180), # Coins are rotation invariant
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.8, 1.2)),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        transforms.RandomRotation(180), # Mince jsou invariantní vůči rotaci
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
+        # Přesný ColorJitter: Zvládá jas/kontrast, ale odstín/sytost drží zkrátka
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.02),
     ])
 
-    # 3. Load Dataset
+    # 3. Načtení datasetu
     full_dataset = datasets.ImageFolder(root=DATA_DIR, transform=transform)
     print(f"Classes found: {full_dataset.classes}")
     
-    # Split Train/Val
+    # Rozdělení Train/Val
     train_size = int(0.8 * len(full_dataset))
     val_size = len(full_dataset) - train_size
     train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
@@ -47,16 +50,17 @@ def train():
 
     print(f"Training on {len(train_dataset)} images, Validating on {len(val_dataset)} images.")
 
-    # 4. Initialize Model
+    # 4. Inicializace modelu
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    net = model.CoinCNN(num_classes=len(full_dataset.classes)).to(device)
+    # Použití modelu ResNet
+    net = model.get_coin_model(num_classes=len(full_dataset.classes)).to(device)
     
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters(), lr=LEARNING_RATE)
 
-    # 5. Training Loop
+    # 5. Trénovací smyčka
     best_acc = 0.0
     
     for epoch in range(EPOCHS):
@@ -82,7 +86,7 @@ def train():
         train_acc = 100 * correct / total
         print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {running_loss/len(train_loader):.4f}, Train Acc: {train_acc:.2f}%")
 
-        # Validation
+        # Validace
         net.eval()
         correct_val = 0
         total_val = 0
