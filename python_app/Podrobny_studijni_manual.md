@@ -132,6 +132,7 @@ Mince může být na stole libovolně natočená. Aby se model naučil, že "pě
 
 *   **RandomRotation(180)**: Klíčové pro rotační invarianci.
 *   **ColorJitter**: Mění jas a kontrast (simulace světla), ale jen velmi opatrně mění odstín (Hue), aby si model nepletl "zlatou" 20 Kč a "měděnou" 10 Kč.
+*   **RandomGrayscale**: Náhodný převod na stupně šedi (p=0.5). Nutí síť ignorovat barvu a soustředit se na ražbu/tvar.
 *   **Padding**: Při extrakci mince (`utils.py`) přidáváme 30 % okraj, aby síť viděla hranu mince v kontextu.
 
 ---
@@ -168,6 +169,7 @@ net = model.load_model() # Načte náš ResNet18
 
 # Pipeline transformací (shodná s tréninkem!)
 transform_pipeline = transforms.Compose([
+    transforms.Resize((224, 224)), # Standard pro ResNet
     transforms.ToTensor(), # Převod na hodnoty 0.0 - 1.0
     transforms.Normalize(mean=[0.485,...], std=[0.229,...]) # ImageNet statistiky
 ])

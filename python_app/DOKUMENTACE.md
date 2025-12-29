@@ -45,7 +45,7 @@ Proces zpracování obrazu probíhá v několika krocích:
 4.  **Extrakce (`utils.extract_coin_image`)**:
     *   Pro každý detekovaný kruh se provede výřez z **původního obrazu v plném rozlišení**.
     *   Přidává se **padding (30 %)**, aby výřez obsahoval i okraj mince a kousek pozadí (kontext).
-    *   Výřez je změněn na velikost **128x128 px**.
+    *   Výřez je změněn na velikost **224x224 px** (standard pro ResNet).
 5.  **Klasifikace (`app.py`, `model.py`)**:
     *   Obrázek je normalizován pomocí statistik ImageNet (mean/std), stejně jako při trénování.
     *   Model ResNet18 určí pravděpodobnost pro jednotlivé třídy.
@@ -68,7 +68,8 @@ Aby model fungoval v reálných podmínkách, trénovací proces zahrnuje silnou
 *   **Rotace**: Náhodná rotace o 0–180° (mince nemají "správnou" orientaci).
 *   **Affine**: Mírné posuny a změny měřítka (simulace různých vzdáleností).
 *   **Color Jitter**: Změny jasu a kontrastu (simulace různého osvětlení).
-*   **Omezení odstínu (Hue)**: Změna odstínu je omezena na minimum, aby model rozlišoval mezi materiály (měď vs. zlato u 10/20/50 Kč), ale nebyl zmaten "teplým" světlem žárovky.
+*   **Omezení odstínu (Hue)**: Změna odstínu je omezena na minimum, aby model rozlišoval mezi materiály.
+*   **Random Grayscale**: Náhodný převod na černobílou (pravděpodobnost 50 %) nutí model soustředit se na tvar a ražbu mince, nikoliv pouze na barvu (což pomáhá u mincí s patinou nebo divným nasvícením).
 
 ### C. Ladění Parametrů (UI)
 Aplikace umožňuje ladit detekční algoritmus:
