@@ -10,9 +10,9 @@ Vítejte v této rozsáhlé výukové příručce, která je koncipována jako v
 
 Cílem tohoto textu není pouze poskytnout funkční kód, ale především vybudovat hluboké teoretické porozumění principům, které umožňují strojům **"vidět"** a **"chápat"** vizuální data.
 
-Numismatika a automatizované třídění mincí představují pro počítačové vidění zajímavou výzvu. Mince jsou objekty s pevně danou geometrií (kruhový tvar), což umožňuje využití robustních matematických transformací, avšak jejich povrch je vysoce variabilní. Různé stupně opotřebení, oxidace (patina), odlesky kovu, variabilní osvětlení a jemné detaily ražby činí z klasifikace netriviální problém, který nelze řešit pouhým porovnáváním pixelů.1
+Numismatika a automatizované třídění mincí představují pro počítačové vidění zajímavou výzvu. Mince jsou objekty s pevně danou geometrií (kruhový tvar), což umožňuje využití robustních matematických transformací, avšak jejich povrch je vysoce variabilní. Různé stupně opotřebení, oxidace (patina), odlesky kovu, variabilní osvětlení a jemné detaily ražby činí z klasifikace netriviální problém, který nelze řešit pouhým porovnáváním pixelů. (1)
 
-Historicky vyžadovala identifikace mincí expertní znalosti a manuální kontrolu, což bylo časově náročné a subjektivní. S příchodem konvolučních neuronových sítí (CNN) a pokročilých algoritmů segmentace se však otevírají možnosti pro plnou automatizaci, která nachází uplatnění od prodejních automatů až po archeologický výzkum a mobilní aplikace pro sběratele.1
+Historicky vyžadovala identifikace mincí expertní znalosti a manuální kontrolu, což bylo časově náročné a subjektivní. S příchodem konvolučních neuronových sítí (CNN) a pokročilých algoritmů segmentace se však otevírají možnosti pro plnou automatizaci, která nachází uplatnění od prodejních automatů až po archeologický výzkum a mobilní aplikace pro sběratele. (1)
 
 Tato příručka je strukturována do logických bloků, které kopírují reálný tok dat v aplikaci počítačového vidění: od pořízení obrazu, přes jeho předzpracování a segmentaci, až po extrakci příznaků a finální klasifikaci pomocí neuronových sítí. U každého tématu budeme důsledně rozlišovat mezi teoretickým principem (matematickým a algoritmickým pozadím) a praktickou implementací (kódem v Pythonu s využitím knihoven OpenCV a PyTorch/TensorFlow).
 
@@ -28,21 +28,21 @@ Než se pustíme do detekce mincí, musíme pochopit, s jakými daty pracujeme. 
 
 ## 1.1 Teoretický princip: Obraz jako matice a barevné prostory
 
-V kontextu počítačového vidění je rastrový obraz (bitmapa) reprezentován jako mřížka pixelů. Každý pixel nese informaci o intenzitě světla v daném bodě. V nejběžnějším barevném modelu **RGB (Red, Green, Blue)** je každý pixel definován trojicí hodnot, obvykle v rozsahu 0 až 255 (pro 8bitovou hloubku), kde 0 představuje absenci barvy (černá) a 255 plnou intenzitu. Barevný obraz o rozměrech $H \times W$ (výška × šířka) je tedy matematicky reprezentován jako tenzor o rozměrech $H \times W \times 3$.4
+V kontextu počítačového vidění je rastrový obraz (bitmapa) reprezentován jako mřížka pixelů. Každý pixel nese informaci o intenzitě světla v daném bodě. V nejběžnějším barevném modelu **RGB (Red, Green, Blue)** je každý pixel definován trojicí hodnot, obvykle v rozsahu 0 až 255 (pro 8bitovou hloubku), kde **0 představuje absenci barvy (černá)**  a **255 plnou intenzitu**. Barevný obraz o rozměrech $H \times W$ (výška × šířka) je tedy matematicky reprezentován jako **tenzor** o rozměrech $H \times W \times 3$. (4)
 
-Pro úlohu detekce tvarů, jako jsou mince, je však barva často redundantní a může dokonce vnášet do analýzy šum (například různé odlesky na zlaté a stříbrné minci mohou mást detektory hran). Proto je prvním krokem v našem řetězci převod do stupňů šedi (**grayscale**). V tomto jedkanálovém režimu ($H \times W \times 1$) reprezentuje hodnota pixelu jas (luminanci). Převod se obvykle neprovádí prostým průměrem RGB kanálů, ale váženým součtem, který zohledňuje citlivost lidského oka na různé vlnové délky světla (oko je nejcitlivější na zelenou):
+Pro úlohu detekce tvarů, jako jsou mince, je však barva často redundantní a může dokonce vnášet do analýzy šum (například různé odlesky na zlaté a stříbrné minci mohou mást detektory hran). Proto je prvním krokem v našem řetězci převod do stupňů šedi (**grayscale**). V tomto jedkanálovém režimu ($H \times W \times 1$) reprezentuje hodnota pixelu jas (luminanci). Převod se obvykle neprovádí prostým průměrem RGB kanálů, ale **váženým součtem**, který zohledňuje citlivost lidského oka na různé vlnové délky světla (oko je nejcitlivější na zelenou):
 
 $$Y = 0.299R + 0.587G + 0.114B$$
 
 Tento proces zjednodušuje data (redukce objemu dat na třetinu) a zdůrazňuje strukturální informace (hrany, texturu) na úkor chromatických informací.5
 
-Dalším důležitým konceptem je barevný prostor **HSV (Hue, Saturation, Value)**. Zatímco RGB míchá barvu a jas, HSV odděluje samotný odstín (Hue) od sytosti a jasu. To je užitečné v situacích, kdy chceme filtrovat mince specifické barvy (např. měděné vs. stříbrné) nezávisle na intenzitě osvětlení. V naší aplikaci se však primárně spolehneme na grayscale pro geometrickou detekci.6
+Dalším důležitým konceptem je barevný prostor **HSV (Hue, Saturation, Value)**. Zatímco RGB míchá barvu a jas, HSV odděluje samotný odstín (Hue) od sytosti a jasu. To je užitečné v situacích, kdy chceme filtrovat mince specifické barvy (např. měděné vs. stříbrné) nezávisle na intenzitě osvětlení. V naší aplikaci se však primárně spolehneme na grayscale pro geometrickou detekci. (6)
 
 ---
 
 ## 1.2 Redukce šumu a teorie filtrace
 
-Digitální fotografie mincí nejsou nikdy dokonalé. Obsahují šum, který může pocházet z tepelného šumu senzoru kamery, zrnitosti při vysokém ISO, nebo může jít o "šum" scény – texturu podkladu (koberce, dřeva), škrábance na minci či odlesky. Detektory hran, které jsou založeny na derivacích (změnách jasu), jsou na šum extrémně citlivé. Derivace zašuměného signálu vede k amplifikaci šumu, což by v našem případě vedlo k detekci tisíců falešných hran.
+Digitální fotografie mincí nejsou nikdy dokonalé. Obsahují šum, který může pocházet z tepelného šumu senzoru kamery, zrnitosti při vysokém ISO, nebo může jít o "šum" scény – texturu podkladu (koberce, dřeva), škrábance na minci či odlesky. **Detektory hran, které jsou založeny na derivacích (změnách jasu), jsou na šum extrémně citlivé.** Derivace zašuměného signálu vede k **amplifikaci šumu**, což by v našem případě vedlo k detekci tisíců falešných hran.
 
 Proto je nezbytné obraz **vyhladit (rozostřit)**.
 
