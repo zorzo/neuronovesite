@@ -12,7 +12,7 @@ MODEL_SAVE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'coin
 BATCH_SIZE = 32
 EPOCHS = 40  # Více epoch pro lepší konvergenci
 LEARNING_RATE = 0.0001
-IMG_SIZE = (128, 128)
+IMG_SIZE = (224, 224)
 
 def train():
     # 1. Kontrola existence dat
@@ -25,7 +25,7 @@ def train():
     # 2. Transformace dat
     # ResNet vyžaduje normalizaci se statistikami ImageNet
     transform = transforms.Compose([
-        transforms.Resize((128, 128)), # ResNet zvládne větší, ale 128 je pro mince dostačující
+        transforms.Resize(IMG_SIZE), # ResNet standard 224x224 pro lepsi detaily
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         # Augmentace pro robustnost
@@ -35,7 +35,7 @@ def train():
         # Agresivní změna jasu/kontrastu pro simulaci špatného osvětlení
         transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2, hue=0.05),
         # KLÍČOVÉ: Vysoká pravděpodobnost grayscale nutí model učit se tvar (ražbu), ne barvu
-        transforms.RandomGrayscale(p=0.3),
+        transforms.RandomGrayscale(p=0.5),
     ])
 
     # 3. Načtení datasetu
